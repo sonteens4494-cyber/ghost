@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ผีหลอกหรือผีอำเนี่ยยยย! - 2D Shonen Anime Studio</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #080d18;
+      --card-bg: rgba(22, 35, 60, 0.85);
+      --accent-yellow: #facc15;
+      --accent-blue: #38bdf8;
+      --accent-red: #ef4444;
+      --text-main: #f8fafc;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Kanit', sans-serif; }
+    body { background: var(--bg-dark); color: var(--text-main); display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 15px; }
+    header { text-align: center; margin-bottom: 15px; }
+    h1 { font-size: 1.4rem; color: var(--accent-yellow); text-shadow: 0 0 10px rgba(250, 204, 21, 0.5); }
+    p.sub { font-size: 0.85rem; color: #94a3b8; }
+    
+    .main-container { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 1000px; }
+    @media(min-width: 768px) { .main-container { flex-direction: row; } }
+
+    .preview-section { flex: 1; display: flex; flex-direction: column; align-items: center; background: #000; padding: 10px; border-radius: 12px; border: 2px solid #1e293b; }
+    .canvas-wrapper { relative; width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; background: #050711; border-radius: 8px; }
+    canvas { max-width: 100%; height: auto; object-fit: contain; }
+
+    .controls-section { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; }
+    .card { background: var(--card-bg); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); }
+    .card h3 { font-size: 0.95rem; color: var(--accent-blue); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+
+    .btn { background: #2563eb; color: #fff; border: none; padding: 10px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; width: 100%; text-align: center; font-size: 0.9rem; }
+    .btn:hover { background: #1d4ed8; }
+    .btn-danger { background: var(--accent-red); }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-success { background: #16a34a; }
+    .btn-success:hover { background: #15803d; }
+    
+    .file-input { display: none; }
+    .file-label { display: block; background: #334155; color: #fff; text-align: center; padding: 8px; border-radius: 6px; cursor: pointer; border: 1px dashed #64748b; font-size: 0.85rem; }
+
+    .controls-row { display: flex; gap: 8px; margin-top: 8px; }
+    select, input { background: #0f172a; color: #fff; border: 1px solid #334155; padding: 6px; border-radius: 4px; width: 100%; font-size: 0.85rem; }
+
+    .timeline-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+    .scene-item { display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.7); padding: 6px 8px; border-radius: 4px; font-size: 0.8rem; border-left: 3px solid var(--accent-blue); }
+    .scene-item.active { border-left-color: var(--accent-yellow); background: rgba(30, 41, 59, 0.9); }
+    .scene-item .btn-group { display: flex; gap: 4px; }
+    .scene-item button { padding: 2px 6px; font-size: 0.75rem; background: #334155; color: #fff; border: none; border-radius: 3px; cursor: pointer; }
+
+    .progress-bar { width: 100%; height: 6px; background: #1e293b; border-radius: 3px; overflow: hidden; margin-top: 6px; }
+    .progress-fill { height: 100%; width: 0%; background: var(--accent-yellow); transition: width 0.1s linear; }
+
+    #export-video { width: 100%; max-width: 320px; margin-top: 10px; display: none; border-radius: 8px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>ผีหลอกหรือผีอำเนี่ยยยย! ทำไมขยับไม่ได้?</h1>
+    <p class="sub">2D Shonen Anime Production Engine (Single HTML Edition)</p>
+  </header>
+
+  <div class="main-container">
+    <div class="preview-section">
+      <div class="canvas-wrapper" id="wrapper">
+        <canvas id="mainCanvas" width="1080" height="1920"></canvas>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="pBar"></div></div>
+      <video id="export-video" controls playsinline></video>
+    </div>
+
+    <div class="controls-section">
+      <!-- Audio Import -->
+      <div class="card">
+        <h3>1. นำเข้าไฟล์เสียง MASTER AUDIO</h3>
+        <label class="file-label" for="audioFile">📁 เลือกไฟล์ ผี.mp3 หรือไฟล์เสียงบทพากย์</label>
+        <input type="file" id="audioFile" class="file-input" accept="audio/*">
+        <div id="audioStatus" style="font-size:0.75rem; color:#94a3b8; margin-top:6px; text-align:center;">ยังไม่ได้โหลดไฟล์เสียง (ใช้เวลาจำลอง 89.89 วินาที)</div>
+      </div>
+
+      <!-- Playback & Format Settings -->
+      <div class="card">
+        <h3>2. ควบคุมการเล่นและตั้งค่า</h3>
+        <div class="controls-row">
+          <button class="btn" id="playBtn">▶ เล่น Preview</button>
+          <button class="btn btn-danger" id="stopBtn">⏹ หยุด</button>
+        </div>
+        <div class="controls-row" style="margin-top:8px;">
+          <div>
+            <label style="font-size:0.75rem; color:#94a3b8;">อัตราส่วนภาพ</label>
+            <select id="aspectRatio">
+              <option value="9:16">9:16 (Facebook Reels / 1080x1920)</option>
+              <option value="4:5">4:5 (Facebook Feed / 1080x1350)</option>
+              <option value="1:1">1:1 (Square / 1080x1080)</option>
+              <option value="16:9">16:9 (Landscape / 1920x1080)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:0.75rem; color:#94a3b8;">ความละเอียด</label>
+            <select id="resSelect">
+              <option value="1080">1080p</option>
+              <option value="720">720p</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sync Timeline Adjuster -->
+      <div class="card">
+        <h3>3. ปรับจุดซิงก์ฉาก (Timeline Sync)</h3>
+        <div class="timeline-list" id="timelineList"></div>
+      </div>
+
+      <!-- Export Engine -->
+      <div class="card">
+        <h3>4. สร้างวิดีโอ (Render & Export)</h3>
+        <button class="btn btn-success" id="exportBtn">🎬 เริ่ม Render & Export วิดีโอจริง</button>
+        <div id="exportStatus" style="font-size:0.8rem; color:var(--accent-yellow); margin-top:6px; text-align:center;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- OUTPUT G CONFIG & DATA ---
+    const CONFIG = {
+      fps: 30,
+      duration: 89.89,
+      width: 1080,
+      height: 1920,
+      scenes: [
+        { id: "S1", name: "1. ห้องนอนกลางคืน", start: 0, end: 11.2, text: "ผีหลอกหรือผีอำเนี่ยยยย! ทำไมขยับไม่ได้? เคยไหม... นอนอยู่ดีๆ แล้วขยับไม่ได้" },
+        { id: "S2", name: "2. ตื่นแต่ขยับไม่ได้", start: 11.2, end: 22.5, text: "ลืมตาได้ มองเห็นทุกอย่าง แต่ขยับแขนขาไม่ได้ แม้แต่จะร้องเรียกใครก็ทำไม่ได้!" },
+        { id: "S3", name: "3. เงาปริศนาปลายเตียง", start: 22.5, end: 34.0, text: "บางคนรู้สึกเหมือนมีใครยืนอยู่ปลายเตียง หรือมีอะไรบางอย่างกดทับหน้าอก..." },
+        { id: "S4", name: "4. เฉลย Sleep Paralysis", start: 34.0, end: 45.0, text: "ความจริงแล้ว สิ่งนี้มีชื่อทางวิทยาศาสตร์ว่า Sleep Paralysis (ภาวะอัมพาตขณะหลับ)" },
+        { id: "S5", name: "5. REM Sleep", start: 45.0, end: 56.5, text: "เกิดขึ้นตอนที่เรานอนหลับในช่วง REM Sleep ซึ่งเป็นช่วงที่สมองมีความฝันอย่างชัดเจน" },
+        { id: "S6", name: "6. สมองตื่นก่อนร่างกาย", start: 56.5, end: 68.0, text: "สมองส่วนรับรู้ตื่นขึ้นมาก่อน ในขณะที่กล้ามเนื้อยังถูกยับยั้งการเคลื่อนไหวอยู่" },
+        { id: "S7", name: "7. ประสบการณ์หลอน-ภาพเงา", start: 68.0, end: 79.0, text: "กลไกการฝันยังรบกวนการรับรู้ จึงทำให้เห็นเงาดำ ได้ยินเสียง หรือรู้สึกโดนทับ" },
+        { id: "S8", name: "8. สรุปและปิดเรื่อง", start: 79.0, end: 89.89, text: "สรุปคือ ผีอำอาจเป็นเพียงสมองที่ตื่นไม่พร้อมกับร่างกาย แล้วคุณล่ะ... เคยเจอแบบไหน?" }
+      ]
+    };
+
+    // --- STATE MANAGEMENT ---
+    let audioCtx = null;
+    let audioBuffer = null;
+    let audioSource = null;
+    let isPlaying = false;
+    let startTime = 0;
+    let currentTime = 0;
+    let animationFrameId = null;
+
+    // --- CANVAS & SYSTEM SETUP ---
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // --- THREE.JS OVERLAY SETUP (For Optional 3D Brain/Nerve Model) ---
+    const threeScene = new THREE.Scene();
+    const threeCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+    const threeRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    threeRenderer.setSize(400, 400);
+    threeCamera.position.z = 5;
+
+    // Create 3D Scientific Visual Node (Brain/Nerve Spheres)
+    const geometry = new THREE.IcosahedronGeometry(1.8, 2);
+    const material = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true });
+    const brainMesh = new THREE.Mesh(geometry, material);
+    threeScene.add(brainMesh);
+
+    // --- RENDER ENGINE (2D SHONEN ANIME STYLE) ---
+    function renderAtTime(t) {
+      const curScene = CONFIG.scenes.find(s => t >= s.start && t <= s.end) || CONFIG.scenes[0];
+      
+      // Clear Background
+      ctx.fillStyle = "#050711";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Background Details
+      drawEnvironment(curScene.id, t);
+
+      // Draw Characters
+      if (curScene.id === "S5" || curScene.id === "S6") {
+        drawScientificVisualization(t);
+      } else {
+        drawMainCharacter(curScene.id, t);
+        if (curScene.id === "S3" || curScene.id === "S7") {
+          drawShadowEntity(t);
+        }
+      }
+
+      // Draw Visual Effects (Shonen Style)
+      drawAnimeVFX(curScene.id, t);
+
+      // Draw Subtitles & HUD
+      drawSubtitles(curScene.text);
+      drawHUD(curScene.name);
+    }
+
+    // --- 2D ENVIRONMENT DRAWING ---
+    function drawEnvironment(sceneId, t) {
+      if (sceneId === "S1" || sceneId === "S2" || sceneId === "S3" || sceneId === "S7" || sceneId === "S8") {
+        // Bedroom Scene
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        bgGrad.addColorStop(0, "#090d16");
+        bgGrad.addColorStop(1, "#17233c");
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Window & Moonlight Beam
+        ctx.fillStyle = "rgba(56, 189, 248, 0.08)";
+        ctx.beginPath();
+        ctx.moveTo(100, 0); ctx.lineTo(400, 0);
+        ctx.lineTo(900, canvas.height); ctx.lineTo(0, canvas.height);
+        ctx.fill();
+
+        // Bed Frame
+        ctx.fillStyle = "#1e1b18";
+        ctx.fillRect(100, canvas.height - 400, canvas.width - 200, 250);
+        ctx.fillStyle = "#334155";
+        ctx.fillRect(140, canvas.height - 480, canvas.width - 280, 100); // Pillow
+      } else {
+        // Sci-Fi / Educational Background
+        ctx.fillStyle = "#040814";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Grid Lines
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.15)";
+        ctx.lineWidth = 2;
+        const gridStep = 80;
+        for(let x = 0; x < canvas.width; x += gridStep) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for(let y = 0; y < canvas.height; y += gridStep) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+      }
+    }
+
+    // --- 2D MAIN CHARACTER DRAWING ---
+    function drawMainCharacter(sceneId, t) {
+      ctx.save();
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2 + 100;
+
+      // Body / Shirt (Dark Blue Sleep Shirt)
+      ctx.fillStyle = "#164E91";
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 8;
+      
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY + 300, 220, 180, 0, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+
+      // Head & Skin
+      ctx.fillStyle = "#F0C39F";
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 160, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+
+      // Messy Black Anime Hair
+      ctx.fillStyle = "#111827";
+      ctx.beginPath();
+      ctx.moveTo(centerX - 170, centerY - 40);
+      ctx.lineTo(centerX - 120, centerY - 180);
+      ctx.lineTo(centerX - 60, centerY - 120);
+      ctx.lineTo(centerX, centerY - 220);
+      ctx.lineTo(centerX + 70, centerY - 130);
+      ctx.lineTo(centerX + 140, centerY - 170);
+      ctx.lineTo(centerX + 170, centerY - 20);
+      ctx.lineTo(centerX + 120, centerY + 40);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+
+      // Expressions based on Scene
+      if (sceneId === "S2" || sceneId === "S3") {
+        // Shock Eyes & Sweating
+        ctx.fillStyle = "#FFF";
+        ctx.beginPath();
+        ctx.arc(centerX - 60, centerY - 10, 35, 0, Math.PI * 2);
+        ctx.arc(centerX + 60, centerY - 10, 35, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+
+        // Tiny Pupils
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(centerX - 60 + Math.sin(t * 10) * 3, centerY - 10, 8, 0, Math.PI * 2);
+        ctx.arc(centerX + 60 + Math.sin(t * 10) * 3, centerY - 10, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Sweat Drop (Anime Style)
+        ctx.fillStyle = "#38bdf8";
+        ctx.beginPath();
+        ctx.arc(centerX + 120, centerY - 60 + (t % 1) * 20, 15, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (sceneId === "S8") {
+        // Relief Expression (Closed Eyes Happy)
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 10;
+        ctx.beginPath();
+        ctx.arc(centerX - 60, centerY, 30, Math.PI, 0);
+        ctx.arc(centerX + 60, centerY, 30, Math.PI, 0);
+        ctx.stroke();
+      } else {
+        // Sleeping / Normal Eyes
+        ctx.fillStyle = "#000";
+        ctx.fillRect(centerX - 90, centerY - 10, 50, 8);
+        ctx.fillRect(centerX + 40, centerY - 10, 50, 8);
+      }
+
+      ctx.restore();
+    }
+
+    // --- SHADOW ENTITY (MYSTERY ENTITY C2) ---
+    function drawShadowEntity(t) {
+      ctx.save();
+      const shadowX = canvas.width / 2 + Math.sin(t * 2) * 20;
+      const shadowY = canvas.height / 2 - 200;
+
+      ctx.fillStyle = "rgba(5, 7, 17, 0.92)";
+      ctx.beginPath();
+      ctx.ellipse(shadowX, shadowY, 180, 350, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Glowing Red Eyes
+      ctx.fillStyle = "#ef4444";
+      ctx.shadowColor = "#ef4444";
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.arc(shadowX - 50, shadowY - 80, 12, 0, Math.PI * 2);
+      ctx.arc(shadowX + 50, shadowY - 80, 12, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // --- 3D SCIENTIFIC VISUALIZATION (INTEGRATED THREE.JS) ---
+    function drawScientificVisualization(t) {
+      brainMesh.rotation.x = t * 0.5;
+      brainMesh.rotation.y = t * 0.8;
+      threeRenderer.render(threeScene, threeCamera);
+
+      ctx.drawImage(threeRenderer.domElement, canvas.width / 2 - 200, canvas.height / 2 - 300, 400, 400);
+
+      // Sci-fi Callouts
+      ctx.fillStyle = "#facc15";
+      ctx.font = "bold 42px Kanit";
+      ctx.textAlign = "center";
+      ctx.fillText("REM SLEEP / BRAIN ACTIVE", canvas.width / 2, canvas.height / 2 + 200);
+      ctx.fillStyle = "#ef4444";
+      ctx.fillText("MUSCLE INHIBITED (ขยับไม่ได้)", canvas.width / 2, canvas.height / 2 + 260);
+    }
+
+    // --- ANIME VFX (SPEED LINES & IMPACT) ---
+    function drawAnimeVFX(sceneId, t) {
+      if (sceneId === "S2" || sceneId === "S4") {
+        ctx.save();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+        ctx.lineWidth = 4;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        for (let i = 0; i < 36; i++) {
+          const angle = (i * 10 * Math.PI) / 180;
+          const dist = 300 + (Math.sin(t * 20 + i) * 50);
+          ctx.beginPath();
+          ctx.moveTo(centerX + Math.cos(angle) * dist, centerY + Math.sin(angle) * dist);
+          ctx.lineTo(centerX + Math.cos(angle) * (dist + 400), centerY + Math.sin(angle) * (dist + 400));
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+
+    // --- SUBTITLES & HUD ---
+    function drawSubtitles(text) {
+      ctx.save();
+      ctx.font = "bold 44px Kanit";
+      ctx.textAlign = "center";
+      
+      const padding = 20;
+      const boxY = canvas.height - 220;
+      
+      // Semi-transparent Dark Background Box
+      ctx.fillStyle = "rgba(8, 13, 24, 0.85)";
+      ctx.fillRect(80, boxY - 50, canvas.width - 160, 140);
+      ctx.strokeStyle = "#facc15";
+      ctx.lineWidth = 4;
+      ctx.strokeRect(80, boxY - 50, canvas.width - 160, 140);
+
+      // Text Render
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillText(text.substring(0, 30), canvas.width / 2, boxY + 10);
+      if (text.length > 30) {
+        ctx.fillText(text.substring(30), canvas.width / 2, boxY + 65);
+      }
+      ctx.restore();
+    }
+
+    function drawHUD(sceneName) {
+      ctx.save();
+      ctx.fillStyle = "rgba(37, 99, 235, 0.8)";
+      ctx.fillRect(40, 40, 420, 60);
+      ctx.fillStyle = "#FFF";
+      ctx.font = "bold 28px Kanit";
+      ctx.fillText(sceneName, 60, 80);
+      ctx.restore();
+    }
+
+    // --- PLAYBACK CONTROL & ANIMATION LOOP ---
+    function update() {
+      if (isPlaying) {
+        if (audioCtx && audioSource) {
+          currentTime = audioCtx.currentTime - startTime;
+        } else {
+          currentTime += 1 / CONFIG.fps;
+        }
+
+        if (currentTime >= CONFIG.duration) {
+          stopPlayback();
+          return;
+        }
+
+        document.getElementById('pBar').style.width = (currentTime / CONFIG.duration * 100) + "%";
+        renderAtTime(currentTime);
+        updateActiveSceneUI();
+        animationFrameId = requestAnimationFrame(update);
+      }
+    }
+
+    function startPlayback() {
+      if (isPlaying) return;
+      isPlaying = true;
+
+      if (audioBuffer) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioSource = audioCtx.createBufferSource();
+        audioSource.buffer = audioBuffer;
+        audioSource.connect(audioCtx.destination);
+        startTime = audioCtx.currentTime - currentTime;
+        audioSource.start(0, currentTime);
+      } else {
+        startTime = performance.now() / 1000 - currentTime;
+      }
+
+      update();
+    }
+
+    function stopPlayback() {
+      isPlaying = false;
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      if (audioSource) { try { audioSource.stop(); } catch(e){} audioSource = null; }
+      currentTime = 0;
+      renderAtTime(0);
+      document.getElementById('pBar').style.width = "0%";
+    }
+
+    // --- TIMELINE UI BUILDER ---
+    function buildTimelineUI() {
+      const container = document.getElementById('timelineList');
+      container.innerHTML = '';
+      CONFIG.scenes.forEach((sc, idx) => {
+        const item = document.createElement('div');
+        item.className = 'scene-item';
+        item.id = `sc-item-${sc.id}`;
+        item.innerHTML = `
+          <span>${sc.name} (${sc.start.toFixed(1)}s - ${sc.end.toFixed(1)}s)</span>
+          <div class="btn-group">
+            <button onclick="adjustTime(${idx}, -0.5)">-0.5s</button>
+            <button onclick="adjustTime(${idx}, 0.5)">+0.5s</button>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    window.adjustTime = function(idx, delta) {
+      CONFIG.scenes[idx].end = Math.max(CONFIG.scenes[idx].start + 1, CONFIG.scenes[idx].end + delta);
+      if (CONFIG.scenes[idx + 1]) {
+        CONFIG.scenes[idx + 1].start = CONFIG.scenes[idx].end;
+      }
+      buildTimelineUI();
+      renderAtTime(currentTime);
+    };
+
+    function updateActiveSceneUI() {
+      CONFIG.scenes.forEach(sc => {
+        const el = document.getElementById(`sc-item-${sc.id}`);
+        if (el) {
+          if (currentTime >= sc.start && currentTime <= sc.end) el.classList.add('active');
+          else el.classList.remove('active');
+        }
+      });
+    }
+
+    // --- AUDIO FILE IMPORT ---
+    document.getElementById('audioFile').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      document.getElementById('audioStatus').innerText = `กำลังโหลด: ${file.name}...`;
+      const reader = new FileReader();
+
+      reader.onload = function(evt) {
+        const actx = new (window.AudioContext || window.webkitAudioContext)();
+        actx.decodeAudioData(evt.target.result, function(buffer) {
+          audioBuffer = buffer;
+          CONFIG.duration = buffer.duration;
+          document.getElementById('audioStatus').innerText = `พร้อมเล่น: ${file.name} (${buffer.duration.toFixed(2)} วินาที)`;
+          renderAtTime(0);
+        });
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    // --- EXPORT VIDEO ENGINE (MediaRecorder) ---
+    document.getElementById('exportBtn').addEventListener('click', async function() {
+      const exportBtn = this;
+      const statusDiv = document.getElementById('exportStatus');
+      exportBtn.disabled = true;
+      statusDiv.innerText = "กำลัง Render วิดีโอ กรุณารอซักครู่...";
+
+      stopPlayback();
+
+      const stream = canvas.captureStream(CONFIG.fps);
+      let recorder;
+      const chunks = [];
+
+      try {
+        recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+      } catch (e) {
+        recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      }
+
+      recorder.ondataavailable = e => chunks.push(e.data);
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const videoURL = URL.createObjectURL(blob);
+        const videoEl = document.getElementById('export-video');
+        videoEl.src = videoURL;
+        videoEl.style.display = 'block';
+        statusDiv.innerText = "Render วิดีโอเสร็จสมบูรณ์! สามารถดูวิดีโอด้านบนได้ทันที";
+        exportBtn.disabled = false;
+      };
+
+      recorder.start();
+      
+      let renderTime = 0;
+      const step = 1 / CONFIG.fps;
+
+      function renderFrame() {
+        if (renderTime <= CONFIG.duration) {
+          renderAtTime(renderTime);
+          renderTime += step;
+          setTimeout(renderFrame, 1000 / CONFIG.fps);
+        } else {
+          recorder.stop();
+        }
+      }
+
+      renderFrame();
+    });
+
+    // --- EVENT LISTENERS ---
+    document.getElementById('playBtn').addEventListener('click', startPlayback);
+    document.getElementById('stopBtn').addEventListener('click', stopPlayback);
+    
+    document.getElementById('aspectRatio').addEventListener('change', function(e) {
+      const val = e.target.value;
+      if (val === "9:16") { canvas.width = 1080; canvas.height = 1920; }
+      else if (val === "4:5") { canvas.width = 1080; canvas.height = 1350; }
+      else if (val === "1:1") { canvas.width = 1080; canvas.height = 1080; }
+      else if (val === "16:9") { canvas.width = 1920; canvas.height = 1080; }
+      renderAtTime(currentTime);
+    });
+
+    // INITIALIZATION
+    buildTimelineUI();
+    renderAtTime(0);
+  </script>
+</body>
+</html>
